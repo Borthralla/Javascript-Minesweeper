@@ -311,36 +311,23 @@ class Board {
 	}
 
 	draw_number(tile, ctx, tile_size, x, y, colors) {
-		//ctx.strokeStyle = "#000000";
-		//ctx.strokeRect(x, y, tile_size - 1, tile_size - 1);
-		ctx.fillStyle = "#ffffff"
-		ctx.fillRect(x, y, tile_size - 1, tile_size - 1);
-		ctx.fillStyle = colors[tile.number];
-		ctx.fillText(tile.number.toString(), x + tile_size/2, y + tile_size / 1.8);
+		ctx.drawImage(colors[tile.number], x, y);
 	}
 
 	draw_tile(tile, ctx, tile_size, x, y, colors) {
-		ctx.strokeStyle = "#000000";
-		ctx.strokeRect(x, y, tile_size - 1, tile_size - 1);
 		if (tile.is_covered) {
 			if (tile.is_flagged) {
-				ctx.fillStyle = "#00ff00"
-				ctx.fillRect(x, y, tile_size - 1, tile_size - 1);
+				ctx.drawImage(colors[11], x, y);
 			}
 			else {
-				ctx.fillStyle = "#afafaf"
-				ctx.fillRect(x, y, tile_size - 1, tile_size - 1);
+				ctx.drawImage(colors[10], x, y);
 			}		
 		}
 		else if (tile.is_bomb) {
-			ctx.fillStyle = "#ff0000"
-			ctx.fillRect(x, y, tile_size - 1, tile_size - 1);
+			ctx.drawImage(colors[9], x, y);
 		}
 		else {
-			ctx.fillStyle = "#ffffff"
-			ctx.fillRect(x, y, tile_size - 1, tile_size - 1);
-			ctx.fillStyle = colors[tile.number];
-			ctx.fillText(tile.number.toString(), x + tile_size/2, y + tile_size / 1.8);
+			draw_number(tile, ctx, tile_size, x, y, colors);
 		}
 	}
 
@@ -385,11 +372,42 @@ class Tile {
 class Gui {
 	constructor() {
 		this.canvas = document.getElementById("myCanvas");
-		this.board = new Board(10, 10, 10);
-		this.tile_size = 60;
+		this.board = new Board(1000, 1000, 100000);
+		this.tile_size = 10;
 		this.resize();
-		this.colors = ["White", "Blue", "Green", "Red", "DarkBlue", "Brown", "DarkCyan", "Black", "Gray"];
 		this.first_click = true;
+	}
+
+	load_image(image_path) {
+		const image = new Image();
+		var offscreenCanvas = document.createElement('canvas');
+		offscreenCanvas.width = this.tile_size ;
+		offscreenCanvas.height = this.tile_size;
+		var ctx = offscreenCanvas.getContext('2d');
+		var tile_size = this.tile_size
+		function on_load() {
+			ctx.drawImage(image, 0, 0, tile_size, tile_size)
+			return offscreenCanvas;
+		}
+		function make_promise(resolve, reject) {
+			image.addEventListener('load', () => resolve(on_load()))
+			image.src = image_path;
+		}
+		
+		
+		return new Promise(make_promise);
+	}
+
+	async load_images() {
+		var images = []
+		for (var i = 0; i <= 8; i++) {
+			let file_path = "images/" + i.toString() + ".png"
+			images.push(await this.load_image(file_path))
+		}
+		images.push(await this.load_image("images/bomb.png"))
+		images.push(await this.load_image("images/facingDown.png"))
+		images.push(await this.load_image("images/flagged.png"))
+		this.colors = images;
 	}
 
 	resize() {
@@ -399,7 +417,6 @@ class Gui {
 
 	render() {
 		var ctx = this.canvas.getContext("2d");
-		ctx.font = (this.tile_size - 5).toString() + "px Helvetica"
 		this.board.render(ctx, this.tile_size, this.colors);
 	}
 
@@ -414,9 +431,6 @@ class Gui {
 		}
 		else {
 			var ctx = this.canvas.getContext("2d");
-			ctx.textAlign = 'center';
-			ctx.textBaseline = 'middle'
-			ctx.font = (Math.floor(this.tile_size * 0.8485)).toString() + "px Helvetica"
 			var button = event.which
 			var index = row * this.board.width + col
 			if (this.first_click) {
@@ -435,7 +449,7 @@ class Gui {
 				if (this.board.tiles_left == 0) {
 					var now = new Date();
 					var time = (now - this.start) / 1000;
-					alert("Time: " + time.toString());
+					setTimeout("alert('time: " + time.toString() + "');", 1);
 				}
 			}
 			else if (button == 3) {
@@ -446,5 +460,5 @@ class Gui {
 }
 
 var gui = new Gui();
-gui.render();
+gui.load_images().then(() => {gui.render() })
 document.addEventListener("mousedown", (event) => gui.on_click(event));
