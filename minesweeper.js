@@ -311,8 +311,8 @@ class Board {
 	}
 
 	draw_number(tile, ctx, tile_size, x, y, colors) {
-		ctx.strokeStyle = "#000000";
-		ctx.strokeRect(x, y, tile_size - 1, tile_size - 1);
+		//ctx.strokeStyle = "#000000";
+		//ctx.strokeRect(x, y, tile_size - 1, tile_size - 1);
 		ctx.fillStyle = "#ffffff"
 		ctx.fillRect(x, y, tile_size - 1, tile_size - 1);
 		ctx.fillStyle = colors[tile.number];
@@ -385,8 +385,8 @@ class Tile {
 class Gui {
 	constructor() {
 		this.canvas = document.getElementById("myCanvas");
-		this.board = new Board(30, 16, 99);
-		this.tile_size = 75;
+		this.board = new Board(10, 10, 10);
+		this.tile_size = 60;
 		this.resize();
 		this.colors = ["White", "Blue", "Green", "Red", "DarkBlue", "Brown", "DarkCyan", "Black", "Gray"];
 		this.first_click = true;
@@ -421,6 +421,7 @@ class Gui {
 			var index = row * this.board.width + col
 			if (this.first_click) {
 				this.board.assign_bombs_with_zero(index);
+				this.start = new Date();
 				this.first_click = false;
 			}
 			if (button == 1) {
@@ -430,6 +431,11 @@ class Gui {
 				}
 				else {
 					this.board.chord_and_draw(index, ctx, this.tile_size, this.colors);
+				}
+				if (this.board.tiles_left == 0) {
+					var now = new Date();
+					var time = (now - this.start) / 1000;
+					alert("Time: " + time.toString());
 				}
 			}
 			else if (button == 3) {
