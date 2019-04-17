@@ -324,6 +324,7 @@ class Board {
 			}		
 		}
 		else if (tile.is_bomb) {
+			ctx.drawImage(colors[0], x, y);
 			ctx.drawImage(colors[9], x, y);
 		}
 		else {
@@ -372,8 +373,8 @@ class Tile {
 class Gui {
 	constructor() {
 		this.canvas = document.getElementById("myCanvas");
-		this.board = new Board(1000, 1000, 100000);
-		this.tile_size = 10;
+		this.board = new Board(30, 16, 99);
+		this.tile_size = 50;
 		this.resize();
 		this.first_click = true;
 	}
@@ -454,7 +455,20 @@ class Gui {
 			}
 			else if (button == 3) {
 				this.board.flag_and_draw(index, ctx, this.tile_size, this.colors);
+				console.log(this.board.bombs_left);
 			}
+		}
+	}
+
+	reset() {
+		this.board = new Board(30, 16, 99);
+		this.first_click = true;
+		this.render();
+	}
+
+	on_key(event) {
+		if (event.keyCode == 82) {
+			this.reset();
 		}
 	}
 }
@@ -462,3 +476,4 @@ class Gui {
 var gui = new Gui();
 gui.load_images().then(() => {gui.render() })
 document.addEventListener("mousedown", (event) => gui.on_click(event));
+document.addEventListener("keydown", (event) => gui.on_key(event));
