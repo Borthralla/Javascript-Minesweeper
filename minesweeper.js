@@ -373,8 +373,12 @@ class Tile {
 class Gui {
 	constructor() {
 		this.canvas = document.getElementById("myCanvas");
-		this.board = new Board(30, 16, 99);
-		this.tile_size = 50;
+		var width = parseInt(document.getElementById("width").value, 10);
+		var height = parseInt(document.getElementById("height").value, 10);
+		var num_bombs = parseInt(document.getElementById("num_bombs").value, 10);
+		var tile_size = parseInt(document.getElementById("tile_size").value, 10);
+		this.board = new Board(width, height, num_bombs);
+		this.tile_size = tile_size;
 		this.resize();
 		this.first_click = true;
 	}
@@ -461,9 +465,22 @@ class Gui {
 	}
 
 	reset() {
-		this.board = new Board(30, 16, 99);
+		this.canvas = document.getElementById("myCanvas");
+		var width = parseInt(document.getElementById("width").value, 10);
+		var height = parseInt(document.getElementById("height").value, 10);
+		var num_bombs = parseInt(document.getElementById("num_bombs").value, 10);
+		var tile_size = parseInt(document.getElementById("tile_size").value, 10);
+		this.board = new Board(width, height, num_bombs);
+		var old_tile_size = this.tile_size;
+		this.tile_size = tile_size;
+		this.resize();
 		this.first_click = true;
-		this.render();
+		if (old_tile_size != this.tile_size) {
+			gui.load_images().then(() => {gui.render() })
+		}
+		else{
+			this.render();
+		}
 	}
 
 	on_key(event) {
@@ -477,3 +494,7 @@ var gui = new Gui();
 gui.load_images().then(() => {gui.render() })
 document.addEventListener("mousedown", (event) => gui.on_click(event));
 document.addEventListener("keydown", (event) => gui.on_key(event));
+
+function reset() {
+	gui.reset();
+}
