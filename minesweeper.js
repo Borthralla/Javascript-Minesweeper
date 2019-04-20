@@ -388,7 +388,7 @@ class Gui {
 		var offscreenCanvas = document.createElement('canvas');
 		offscreenCanvas.width = this.tile_size ;
 		offscreenCanvas.height = this.tile_size;
-		var ctx = offscreenCanvas.getContext('2d');
+		var ctx = offscreenCanvas.getContext("2d", { alpha: false });
 		var tile_size = this.tile_size
 		function on_load() {
 			ctx.drawImage(image, 0, 0, tile_size, tile_size)
@@ -421,7 +421,7 @@ class Gui {
 	}
 
 	render() {
-		var ctx = this.canvas.getContext("2d");
+		var ctx = this.canvas.getContext("2d", { alpha: false });
 		this.board.render(ctx, this.tile_size, this.colors);
 	}
 
@@ -431,11 +431,11 @@ class Gui {
     	var y = event.clientY - rect.top;
 		var row = Math.floor(y / this.tile_size);
 		var col = Math.floor(x / this.tile_size);
-		if (row >= this.board.height || col >= this.board.width) {
+		if (row >= this.board.height || row < 0 || col >= this.board.width || col < 0) {
 			return;
 		}
 		else {
-			var ctx = this.canvas.getContext("2d");
+			var ctx = this.canvas.getContext("2d", { alpha: false });
 			var button = event.which
 			var index = row * this.board.width + col
 			if (this.first_click) {
