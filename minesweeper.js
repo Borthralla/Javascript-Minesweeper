@@ -209,6 +209,44 @@ class Board {
 		}
 	}
 
+	chord(index) {
+		var chord_tile = this.tiles[index];
+		if (chord_tile.is_covered || chord_tile.is_bomb) {
+			return;
+		}
+		var col = index % this.width;
+		var row = Math.floor(index / this.width);
+
+		var first_row = Math.max(0, row - 1);
+		var last_row = Math.min(this.height - 1, row + 1);
+
+		var first_col = Math.max(0, col - 1);
+		var last_col = Math.min(this.width - 1, col + 1);
+
+		var to_reveal = []
+		var num_flagged = 0;
+
+		for (var r = first_row; r <= last_row; r++) {
+			for (var c = first_col; c <= last_col; c++) {
+				var i = this.width * r + c;
+				if (i != index) {
+					var tile = this.tiles[i];
+					if (tile.is_flagged || (tile.is_bomb && !tile.is_covered)) {
+						num_flagged += 1;
+					}
+					else if (tile.is_covered) {
+						to_reveal.push(tile);
+					}
+				}
+			}
+		}
+		if (num_flagged == chord_tile.number) {
+			for (var tile of to_reveal) {
+				this.reveal(tile.index);
+			}
+		}
+	}
+
 	chord_and_draw(index, ctx, tile_size, colors) {
 		var chord_tile = this.tiles[index];
 		if (chord_tile.is_covered || chord_tile.is_bomb) {
@@ -309,6 +347,24 @@ class Board {
 			}
 		}
 	}
+	//Lots of parameters for this function. First 3 are standard.
+	//Row and Col are the starting row and col of the upper-left tile in the region.
+	//width and height are the number of cells to draw in the region
+	//x and y denote where to draw the upper left cell. Note that these usually will be negative (a bit cut off).
+	render_region(ctx, tile_size, colors, row, col, width, height, x, y) {
+		for (var r = 0; r <  height; r++) {
+			for (var c = 0; c < width; c++) {
+				var current_row = row + r;
+				var current_col = col + c;
+				var index = this.width * current_row + current_col;
+				var tile = this.tiles[index];
+				var tile_x = tile_size * c + x;
+				var tile_y = tile_size * r + y;
+				this.draw_tile(tile, ctx, tile_size, tile_x, tile_y, colors);
+
+			}
+		}
+	}
 
 	draw_number(tile, ctx, tile_size, x, y, colors) {
 		ctx.drawImage(colors[tile.number], x, y);
@@ -328,7 +384,7 @@ class Board {
 			ctx.drawImage(colors[9], x, y);
 		}
 		else {
-			draw_number(tile, ctx, tile_size, x, y, colors);
+			this.draw_number(tile, ctx, tile_size, x, y, colors);
 		}
 	}
 
@@ -379,8 +435,17 @@ class Gui {
 		var tile_size = parseInt(document.getElementById("tile_size").value, 10);
 		this.board = new Board(width, height, num_bombs);
 		this.tile_size = tile_size;
-		this.resize();
 		this.first_click = true;
+		this.current_x = 0;
+		this.current_y = 0;
+		this.window_width = 30;
+		this.window_height = 16;
+		this.is_dragging = false;
+		this.anchor_x = 0;
+		this.anchor_y = 0;
+		this.prev_x = 0;
+		this.prev_y = 0;
+		this.resize();
 	}
 
 	load_image(image_path) {
@@ -416,8 +481,8 @@ class Gui {
 	}
 
 	resize() {
-		this.canvas.width = this.board.width * this.tile_size;
-		this.canvas.height = this.board.height * this.tile_size;
+		this.canvas.width = this.window_width * this.tile_size;
+		this.canvas.height = this.window_height * this.tile_size;
 	}
 
 	render() {
@@ -425,10 +490,23 @@ class Gui {
 		this.board.render(ctx, this.tile_size, this.colors);
 	}
 
+	render_region() {
+		//render_region(ctx, tile_size, colors, row, col, width, height, x, y) {
+		var ctx = this.canvas.getContext("2d", { alpha: false });
+		var row = Math.floor(this.current_y / this.tile_size);
+		var col = Math.floor(this.current_x / this.tile_size);
+		var x = this.tile_size * col - this.current_x;
+		var y = this.tile_size * row - this.current_y;
+		var width_to_draw = this.current_x >= this.tile_size * (this.board.width - this.window_width) ? this.window_width : this.window_width + 1;
+		var height_to_draw = this.current_y >= this.tile_size * (this.board.height - this.window_height) ? this.window_height : this.window_height + 1;
+
+		this.board.render_region(ctx, this.tile_size, this.colors, row, col, width_to_draw, height_to_draw, x, y)
+	}
+
 	on_click(event) {
 		var rect = this.canvas.getBoundingClientRect();
-    	var x = event.clientX - rect.left;
-    	var y = event.clientY - rect.top;
+    	var x = event.clientX - rect.left + this.current_x;
+    	var y = event.clientY - rect.top + this.current_y;
 		var row = Math.floor(y / this.tile_size);
 		var col = Math.floor(x / this.tile_size);
 		if (row >= this.board.height || row < 0 || col >= this.board.width || col < 0) {
@@ -438,18 +516,27 @@ class Gui {
 			var ctx = this.canvas.getContext("2d", { alpha: false });
 			var button = event.which
 			var index = row * this.board.width + col
-			if (this.first_click) {
-				this.board.assign_bombs_with_zero(index);
-				this.start = new Date();
-				this.first_click = false;
-			}
 			if (button == 1) {
 				var clicked_tile = this.board.tiles[index];
+				if (event.shiftKey || (!clicked_tile.is_covered && clicked_tile.number == 0)) {
+					this.is_dragging = true;
+					this.anchor_x = event.x;
+					this.anchor_y = event.y;
+					this.prev_x = this.current_x;
+					this.prev_y = this.current_y;
+					console.log("Dragging...")
+					return;
+				}
+				if (this.first_click) {
+					this.board.assign_bombs_with_zero(index);
+					this.start = new Date();
+					this.first_click = false;
+				}
 				if (clicked_tile.is_covered) {
-					this.board.reveal_and_draw(index,  ctx, this.tile_size, this.colors);
+					this.board.reveal(index);
 				}
 				else {
-					this.board.chord_and_draw(index, ctx, this.tile_size, this.colors);
+					this.board.chord(index);
 				}
 				if (this.board.tiles_left == 0) {
 					var now = new Date();
@@ -458,10 +545,36 @@ class Gui {
 				}
 			}
 			else if (button == 3) {
-				this.board.flag_and_draw(index, ctx, this.tile_size, this.colors);
+				this.board.flag(index);
 				console.log(this.board.bombs_left);
 			}
 		}
+		window.requestAnimationFrame(() => this.render_region());
+	}
+
+	on_mouse_up(event) {
+		this.is_dragging = false;
+	}
+
+	on_mouse_move(event) {
+		if (!this.is_dragging) {
+			return;
+		}
+		var dx =  this.anchor_x - event.x;
+		var dy = this.anchor_y - event.y;
+		var new_x = this.prev_x + dx;
+		var new_y = this.prev_y + dy;
+		this.update_position(new_x, new_y)
+	}
+
+	update_position(new_x, new_y) {
+		if (new_x >= 0 && new_x <= this.tile_size * (this.board.width - this.window_width)) {
+			this.current_x = new_x;
+		}
+		if (new_y >= 0 && new_y <= this.tile_size * (this.board.height - this.window_height)) {
+			this.current_y = new_y
+		}
+		window.requestAnimationFrame(() => this.render_region());
 	}
 
 	reset() {
@@ -475,11 +588,16 @@ class Gui {
 		this.tile_size = tile_size;
 		this.resize();
 		this.first_click = true;
+		this.current_x = 0;
+		this.current_y = 0;
+		this.window_width = 30;
+		this.window_height = 16;
+
 		if (old_tile_size != this.tile_size) {
 			gui.load_images().then(() => {gui.render() })
 		}
 		else{
-			this.render();
+			this.render_region();
 		}
 	}
 
@@ -487,13 +605,33 @@ class Gui {
 		if (event.keyCode == 82) {
 			this.reset();
 		}
+		else if (event.keyCode == 65) {
+			var new_x = this.current_x - 5 * this.tile_size;
+			this.update_position(new_x, this.current_y)
+		}
+		else if (event.keyCode == 87) {
+			var new_y = this.current_y - 5 * this.tile_size;
+			this.update_position(this.current_x, new_y)
+		}
+		else if (event.keyCode == 68) {
+			var new_x = this.current_x + 5 * this.tile_size;
+			this.update_position(new_x, this.current_y)
+		}
+		else if (event.keyCode == 83) {
+			var new_y = this.current_y + 5 * this.tile_size;
+			this.update_position(this.current_x, new_y)
+		}
+		window.requestAnimationFrame(() => this.render_region());
 	}
 }
 
 var gui = new Gui();
-gui.load_images().then(() => {gui.render() })
+gui.load_images().then(() => {gui.render_region() })
 document.addEventListener("mousedown", (event) => gui.on_click(event));
 document.addEventListener("keydown", (event) => gui.on_key(event));
+document.addEventListener("mouseup", (event) => gui.on_mouse_up(event))
+document.addEventListener("mousemove", (event) => gui.on_mouse_move(event))
+
 
 function reset() {
 	gui.reset();
